@@ -1,0 +1,62 @@
+/* Box sizing rules */
+* {
+  box-sizing: border-box;
+}
+
+/* Remove default margin */
+body,
+h1,
+p {
+  margin: 0;
+  font-family: "Roboto", sans-serif;
+}
+
+#startGamePage {
+  height: 100vh;
+  width: 100vw;
+  background-color: #3c99dc;
+  background-image: url(../images/background.jpg);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#intro {
+  background-color: #37ccf8;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  margin-top: -64px;
+  margin-left: -4px;
+  width: 360px;
+  height: 360px;
+}
+
+h1 {
+  font-family: "Saira Stencil One", cursive;
+  color: #06293f;
+  font-size: 45px;
+  margin-top: 30px;
+}
+
+#startButton {
+  background-color: #0a375c;
+  padding: 10px 30px;
+  color: white;
+  cursor: pointer;
+  text-align: center;
+  text-transform: uppercase;
+  max-width: 200px;
+  border-radius: 4px;
+  margin-top: 15px;
+  transition: background-color 0.2s ease-in-out;
+}
+
+#startButton:hover {
+  background-color: #06293f;
+}
