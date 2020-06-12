@@ -2,12 +2,15 @@ const playerRadius = 50;
 const startingHealth = 50;
 const playerBackground = "url(./images/ship.png)";
 const boardSize = 1000;
-const gameBackground = "url(./images/background.png)";
+const gameBackground = 'black';
 const waveSpeed = 10000 //miliseconds
 const enemySize = 20;
 const enemyBackground = "lightgreen";
 const centerX = window.innerWidth / 2 - playerRadius*2;
 const centerY = window.innerHeight / 2 - playerRadius*2;
+//MUSIC
+const gameMusic = sound('./music/background.wav');
+
 
 //BOARD
 let board = null;
@@ -40,7 +43,26 @@ document.getElementById("startButton").addEventListener('click', function() {
     document.getElementById("startGamePage").style.display = "none";
     startGame();
 })
+
+function sound(src) {
+    this.sound = document.createElement("audio");
+    this.sound.src = src;
+    this.sound.setAttribute("preload", "auto");
+    this.sound.setAttribute("controls", "none");
+    this.sound.style.display = "none";
+    document.body.appendChild(this.sound);
+    this.play = function(){
+      this.sound.play();
+    }
+    this.stop = function(){
+      this.sound.pause();
+    }
+    return this.sound;
+  }
+
 function startGame() {
+    //Creates the music
+    gameMusic.play();
     //CREATES THE LISTENER FOR KEY EVENTS
     document.addEventListener("keydown", function(e) {
         keys[e.key] = true;
