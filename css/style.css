@@ -60,3 +60,7 @@ h1 {
 #startButton:hover {
   background-color: #06293f;
 }
+
+#game {
+  overflow: visible;
+}
