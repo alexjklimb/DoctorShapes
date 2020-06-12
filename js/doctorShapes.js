@@ -10,7 +10,7 @@ const centerX = window.innerWidth / 2 - playerRadius*2;
 const centerY = window.innerHeight / 2 - playerRadius*2;
 //MUSIC
 const gameMusic = sound('./music/background.wav');
-
+gameMusic.loop=true;
 
 //BOARD
 let board = null;
