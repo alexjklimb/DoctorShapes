@@ -11,6 +11,10 @@ p {
   font-family: "Roboto", sans-serif;
 }
 
+body {
+  background: black;
+}
+
 #startGamePage {
   height: 100vh;
   width: 100vw;
@@ -63,4 +67,18 @@ h1 {
 
 #game {
   overflow: visible;
+}
+
+#game-over {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  top: 0px;
+  display: none;
+  align-items: center;
+  justify-content: space-around;
+  background-color: rgba(0, 0, 0, 0.473);
+}
+#game-over button {
+  cursor: pointer;
 }

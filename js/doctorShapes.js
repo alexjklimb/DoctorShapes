@@ -2,7 +2,7 @@ const playerRadius = 50;
 const startingHealth = 50;
 const playerBackground = "url(./images/ship.png)";
 const boardSize = 1000;
-const gameBackground = 'black';
+const gameBackground = 'url(./images/background.png)';
 const waveSpeed = 10000 //miliseconds
 const enemySize = 20;
 const enemyBackground = "lightgreen";
@@ -16,6 +16,7 @@ gameMusic.loop=true;
 let board = null;
 let bX = window.innerWidth / 2 - boardSize/2;
 let bY = window.innerHeight / 2 - boardSize/2;
+let gamePaused = false;
 //PLAYER
 let player;
 let health = startingHealth;
@@ -32,12 +33,17 @@ let trackTime = 0;
 let breakTime = false;
 let waveSpawns = 10;
 let spawns = 0;
-let spawnTime = 500; //20 seconds
+let spawnTime = 500; //5 seconds
 let enemies = [];
 let enemyAmount = 2;
 
 let keys = {};
-
+//POWERUPS
+const minPowerupTime = 300; //3 seconds
+const maxPowerupTime = 2000; //20 seconds
+let powerups = [];
+let nextPowerupTime = Math.random() * (maxPowerupTime - minPowerupTime) + minPowerupTime;
+let powerTime = 0;
 
 document.getElementById("startButton").addEventListener('click', function() {
     document.getElementById("startGamePage").style.display = "none";
@@ -115,28 +121,45 @@ function startGame() {
 
     // LOOP THAT RUNS ALL OF THE CODE!
     setInterval(function() {
-        movePlayer();
-        moveEnemies();
-        moveBullets();
-        checkCollision();
-        if (trackTime >= spawnTime && !breakTime) {
-            trackTime = 0;
-            spawns += 1;
-            newWave();
-            if (spawns > waveSpawns) {
-                breakTime = true;
+        if (!gamePaused) {
+            movePlayer();
+            moveEnemies();
+            moveBullets();
+            checkCollision();
+            if (powerTime >= nextPowerupTime) {
+                powerup = {
+                    height: 24,
+                    width: 24,
+                    background: 'url(./images/powerups/coins.png)',
+                    x: Math.random() * (boardSize - 24),
+                    y: Math.random() * (boardSize - 24),
+                    radius: 12,
+                }
+                divPowerup = createObject(powerup);
+                powerups.push(powerup);
+                powerup['powerup'] = divPowerup;
+                powerTime = 0;
+                nextPowerupTime = Math.random() * (maxPowerupTime - minPowerupTime) + minPowerupTime;
             }
-        } else if (breakTime) {
-            spawns = 0;
-            if (trackTime >= 2000) {
-                breakTime = false;
+            if (trackTime >= spawnTime && !breakTime) {
+                trackTime = 0;
+                spawns += 1;
+                newWave();
+                if (spawns > waveSpawns) {
+                    breakTime = true;
+                }
+            } else if (breakTime) {
+                spawns = 0;
+                if (trackTime >= 2000) {
+                    breakTime = false;
+                }
             }
+            powerTime += 1;
+            trackTime += 1;
         }
-        trackTime += 1;
     }, 10);
     
     document.addEventListener('click', function(e) {
-        console.log("CLICKED")
         let mouseX = e.clientX - centerX - playerRadius*2;
         let mouseY = e.clientY - centerY - playerRadius*2;
         if (mouseX > 0) {
@@ -171,12 +194,16 @@ function shootBullet(x, y, dx, dy) {
     board.appendChild(bullet);
 }
 function moveBullets() {
-    bullets = bullets.map(bullet => {
+    bullets = bullets.filter(bullet => {
         bullet.x += bullet.dx * bulletSpeed; 
         bullet.y += bullet.dy * bulletSpeed; 
         bullet.bullet.style.left = bullet.x + "px";
         bullet.bullet.style.top = bullet.y + "px";
-        return bullet
+        if (bullet.x >= boardSize || bullet.x <= 0 || bullet.y >= boardSize || bullet.y <= 0) {
+            board.removeChild(bullet.bullet);
+        } else {
+            return bullet
+        }
     });
 }
 function moveEnemies() {
@@ -202,15 +229,16 @@ function checkCollision() {
                     bullets.splice(bInd, 1);
                 }
             });
-            //PLAYER COLLISION
-            if (circleCollision(enemy.x - 15, pX, enemy.y - 15, pY, enemy.radius, playerRadius/2)) {
-                health -= enemy.damage;
-                extraHealthBar.style.width = Math.round(health / startingHealth * 100 / 2) + 'px';
-                board.removeChild(enemy.enemy);
-                enemies.splice(eInd, 1);
-                if (health <= 0) {
-                    board.removeChild(player);
-                }
+        }
+        //PLAYER COLLISION
+        if (circleCollision(enemy.x - 15, pX, enemy.y - 15, pY, enemy.radius, playerRadius/2)) {
+            health -= enemy.damage;
+            extraHealthBar.style.width = Math.round(health / startingHealth * 100 / 2) + 'px';
+            board.removeChild(enemy.enemy);
+            enemies.splice(eInd, 1);
+            if (health <= 0) {
+                board.removeChild(player);
+                gamePaused = true;
             }
         }
     })
@@ -313,8 +341,8 @@ function createObject(newObject) {
     div.style.height = newObject.height + "px";
     div.style.width = newObject.width + "px";
     div.style.position = "absolute";
-    div.style.top = newObject.top + 'px';
-    div.style.left = newObject.left + "px";
+    div.style.top = newObject.y + 'px';
+    div.style.left = newObject.x + "px";
     div.style.background = newObject.background;
     if (newObject.type == "circle") {
         div.style.borderRadius = "50%";
@@ -323,6 +351,8 @@ function createObject(newObject) {
         div.style.height = newObject.height+'px';
         let img = document.createElement("img");
         img.style.width = newObject.width+'px';
+        img.style.pointerEvents = "none";
+        img.style.userSelect = "none";
         img.style.height = newObject.height + 5 + 'px';
         img.style.backgroundPositionY = "-100px";
         img.setAttribute('src', newObject.background);
