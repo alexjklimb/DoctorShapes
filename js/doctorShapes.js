@@ -42,6 +42,8 @@ let keys = {};
 //POWERUPS
 const minPowerupTime = 300; //3 seconds
 const maxPowerupTime = 2000; //20 seconds
+let powerUpTracker = {tripleShot:{on:false, powerupTime:1000, trackTime:0}, doubleShot:{on:false, powerupTime:1000, trackTime:0},health:{}}
+let runningPowerUps = [];
 let powerups = [];
 let nextPowerupTime = Math.random() * (maxPowerupTime - minPowerupTime) + minPowerupTime;
 let powerTime = 0;
@@ -128,6 +130,7 @@ function startGame() {
             moveEnemies();
             moveBullets();
             checkCollision();
+            incrementPowerUps();
             if (powerTime >= nextPowerupTime) {
                 createPowerup();
             }
@@ -161,19 +164,48 @@ function startGame() {
         }
         x = pX + playerRadius/2;
         y = pY + playerRadius/2;
-        shootBullet(x, y, mouseDX, mouseDY);
+        if (powerUpTracker.tripleShot.on) {
+            addDX = Math.cos((Math.atan(mouseY/mouseX)+(Math.PI/6)));
+            addDY = Math.sin((Math.atan(mouseY/mouseX)+(Math.PI/6)));
+            subDX = Math.cos(Math.atan(mouseY/mouseX)-(Math.PI/6));
+            subDY = Math.sin(Math.atan(mouseY/mouseX)-(Math.PI/6));
+            if (mouseDX < 0) {addDX *= -1; addDY*=-1; subDX *=-1;subDY*=-1};
+            shootBullet(x, y, mouseDX, mouseDY);
+            shootBullet(x, y, addDX, addDY);
+            shootBullet(x, y, subDX, subDY);
+        } else if (powerUpTracker.doubleShot.on) {
+            addDX = Math.cos((Math.atan(mouseY/mouseX)+(Math.PI/25)));
+            addDY = Math.sin((Math.atan(mouseY/mouseX)+(Math.PI/25)));
+            subDX = Math.cos(Math.atan(mouseY/mouseX)-(Math.PI/25));
+            subDY = Math.sin(Math.atan(mouseY/mouseX)-(Math.PI/25));
+            if (mouseDX < 0) {addDX *= -1; addDY*=-1; subDX *=-1;subDY*=-1};
+            // shootBullet(x, y, mouseDX, mouseDY);
+            shootBullet(x, y, addDX, addDY);
+            shootBullet(x, y, subDX, subDY);
+        } else {
+            shootBullet(x, y, mouseDX, mouseDY);
+        }
+        
     })
 }
 
+var toRadians = function (degree) {
+    return degree * (Math.PI / 180);
+};
+var toDegrees = function (radians) {
+    return (180/Math.PI) * radians
+}
+
 function createPowerup() {
+    let type = Object.keys(powerUpTracker)[Math.floor(Math.random() * Object.keys(powerUpTracker).length)];
     powerup = {
         height: 24,
         width: 24,
-        background: 'url(./images/powerups/health.png)',
+        background: `url(./images/powerups/${type}.png)`,
         x: Math.random() * (boardSize - 24),
         y: Math.random() * (boardSize - 24),
         radius: 12,
-        type: 'health'
+        type: type
     }
     divPowerup = createObject(powerup);
     powerups.push(powerup);
@@ -351,16 +383,32 @@ function movePlayer() {
         changeAmount = dx * (1 + playerSpeed/5);
         pX += changeAmount;
         bX -= changeAmount;
-        player.style.left = pX + "px";
-        board.style.left = bX + "px";
+    } else {
+        if (pX > boardSize/2) {
+            bX = (window.innerWidth / 2 - boardSize/2) - boardSize/2 + playerRadius/2;
+            pX = boardSize - playerRadius;
+        } else {
+            pX = 0;
+            bX = (window.innerWidth / 2 - boardSize/2) + boardSize/2 - playerRadius/2;
+        }
     }
     if (pY + dy < boardSize - playerRadius && pY + dy > 0) {
         changeAmount = dy * (1 + playerSpeed/5);
         pY += changeAmount;
         bY -= changeAmount;
-        player.style.top = pY + "px";
-        board.style.top = bY + "px";
+    } else {
+        if (pY > boardSize/2) {
+            bY = (window.innerHeight / 2 - boardSize/2) - boardSize/2 + playerRadius/2;
+            pY = boardSize - playerRadius;
+        } else {
+            pY = 0;
+            bY = (window.innerHeight / 2 - boardSize/2) + boardSize/2 - playerRadius/2;
+        }
     }
+    player.style.left = pX + "px";
+    board.style.left = bX + "px";
+    player.style.top = pY + "px";
+    board.style.top = bY + "px";
 };
 function createObject(newObject) {
     var div = document.createElement("div");
@@ -425,13 +473,31 @@ function moveTowardsPlayer(x, y) {
     return { dx: dx, dy: dy, degrees: Math.round(degrees)};
 };
 function doPowerup() {
+    console.log(activePowerup)
     if (activePowerup === 'health' && health < maxHealth) {
         health += 20;
         if (health > maxHealth) health = maxHealth;
         extraHealthBar.style.width = Math.round(((health - 0.01) % 50) / 50 * 100 / 2) + 'px';
         extraHealthBar.style.background = healthColors[Math.floor(((health - 0.01)/ 50))+1];
         healthBar.style.background = healthColors[Math.floor(((health - 0.01) / 50))];
-    }
+    } else if (activePowerup === 'tripleShot') powerShort('tripleShot');
+      else if (activePowerup === 'doubleShot') powerShort('doubleShot');
     activePowerup = '';
     document.getElementsByClassName('powerup-img')[0].style.background = 'transparent';
+}
+
+function powerShort(name) {
+    runningPowerUps.push(name);
+    powerUpTracker[name].on = true;
+    powerUpTracker[name].trackTime = 0;
+    console.log(name)
+}
+function incrementPowerUps() {
+    for (item of runningPowerUps) {
+        powerUpTracker[item].trackTime+=1;
+        if (powerUpTracker[item].trackTime >= powerUpTracker[item].powerupTime) {
+            powerUpTracker[item].on = false;
+            runningPowerUps.splice(runningPowerUps.indexOf(item), 1);
+        }
+    }
 }
