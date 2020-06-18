@@ -1,5 +1,5 @@
 const playerRadius = 50;
-const startingHealth = 50;
+const maxHealth = 70;
 const playerBackground = "url(./images/ship.png)";
 const boardSize = 1000;
 const gameBackground = 'url(./images/background.png)';
@@ -19,8 +19,9 @@ let bY = window.innerHeight / 2 - boardSize/2;
 let gamePaused = false;
 //PLAYER
 let player;
-let health = startingHealth;
+let health = 50;
 let healthBar;
+let healthColors = ['transparent', 'lightgreen', 'lightblue', 'rgb(0, 122, 204)', 'lightpurple', 'purple', 'darkpurple', 'lightred', 'red', 'darkred', 'black', 'white'];
 let extraHealthBar;
 let playerSpeed = 6;
 let pX = boardSize / 2 - playerRadius/2;
@@ -44,6 +45,7 @@ const maxPowerupTime = 2000; //20 seconds
 let powerups = [];
 let nextPowerupTime = Math.random() * (maxPowerupTime - minPowerupTime) + minPowerupTime;
 let powerTime = 0;
+let activePowerup = '';
 
 document.getElementById("startButton").addEventListener('click', function() {
     document.getElementById("startGamePage").style.display = "none";
@@ -127,19 +129,7 @@ function startGame() {
             moveBullets();
             checkCollision();
             if (powerTime >= nextPowerupTime) {
-                powerup = {
-                    height: 24,
-                    width: 24,
-                    background: 'url(./images/powerups/coins.png)',
-                    x: Math.random() * (boardSize - 24),
-                    y: Math.random() * (boardSize - 24),
-                    radius: 12,
-                }
-                divPowerup = createObject(powerup);
-                powerups.push(powerup);
-                powerup['powerup'] = divPowerup;
-                powerTime = 0;
-                nextPowerupTime = Math.random() * (maxPowerupTime - minPowerupTime) + minPowerupTime;
+                createPowerup();
             }
             if (trackTime >= spawnTime && !breakTime) {
                 trackTime = 0;
@@ -174,6 +164,24 @@ function startGame() {
         shootBullet(x, y, mouseDX, mouseDY);
     })
 }
+
+function createPowerup() {
+    powerup = {
+        height: 24,
+        width: 24,
+        background: 'url(./images/powerups/health.png)',
+        x: Math.random() * (boardSize - 24),
+        y: Math.random() * (boardSize - 24),
+        radius: 12,
+        type: 'health'
+    }
+    divPowerup = createObject(powerup);
+    powerups.push(powerup);
+    powerup['powerup'] = divPowerup;
+    powerTime = 0;
+    nextPowerupTime = Math.random() * (maxPowerupTime - minPowerupTime) + minPowerupTime;
+}
+
 function shootBullet(x, y, dx, dy) {
     bullet = document.createElement("div");
     bullet.style.left = x + "px";
@@ -233,12 +241,29 @@ function checkCollision() {
         //PLAYER COLLISION
         if (circleCollision(enemy.x - 15, pX, enemy.y - 15, pY, enemy.radius, playerRadius/2)) {
             health -= enemy.damage;
-            extraHealthBar.style.width = Math.round(health / startingHealth * 100 / 2) + 'px';
+            extraHealthBar.style.width = Math.round(((health - 0.01) % 50) / 50 * 100 / 2) + 'px';
+            extraHealthBar.style.background = healthColors[Math.floor(((health - 0.01)/ 50))+1];
+            healthBar.style.background = healthColors[Math.floor(((health - 0.01) / 50))];
             board.removeChild(enemy.enemy);
             enemies.splice(eInd, 1);
             if (health <= 0) {
                 board.removeChild(player);
                 gamePaused = true;
+            }
+        }
+    })
+    // POEWRUP COLLISION
+    powerups.forEach( (powerup, pInd, pArr) => {
+        if (powerups.length > 0) {
+            if (circleCollision(powerup.x, pX, powerup.y, pY, powerup.radius, playerRadius/2)) {
+                let powerupEl = document.getElementsByClassName('powerup-img')[0];
+                powerupEl.style.background = powerup.background;
+                powerupEl.style.backgroundSize = '50%';
+                powerupEl.style.backgroundRepeat = 'no-repeat';
+                powerupEl.style.backgroundPosition = 'center';
+                board.removeChild(powerup.powerup);
+                powerups.splice(pInd, 1);
+                activePowerup = powerup.type;
             }
         }
     })
@@ -321,6 +346,7 @@ function movePlayer() {
             dy = startingDy;
         }
     }
+    if (keys['q']) doPowerup();
     if (pX + dx < boardSize - playerRadius && pX + dx > 0) {
         changeAmount = dx * (1 + playerSpeed/5);
         pX += changeAmount;
@@ -368,11 +394,12 @@ function createObject(newObject) {
     if (div.id == "player") {
         div.style.backgroundSize = "cover";
         player = div;
-        player.appendChild(extraHealthBar)
         player.appendChild(healthBar);
+        player.appendChild(extraHealthBar)
     }
     if (newObject.id == "game") {
         div.style.backgroundSize = "10%";
+        div.style.zIndex = -2;
         board = div;
         document.body.appendChild(div);
     } else {
@@ -397,3 +424,14 @@ function moveTowardsPlayer(x, y) {
     }
     return { dx: dx, dy: dy, degrees: Math.round(degrees)};
 };
+function doPowerup() {
+    if (activePowerup === 'health' && health < maxHealth) {
+        health += 20;
+        if (health > maxHealth) health = maxHealth;
+        extraHealthBar.style.width = Math.round(((health - 0.01) % 50) / 50 * 100 / 2) + 'px';
+        extraHealthBar.style.background = healthColors[Math.floor(((health - 0.01)/ 50))+1];
+        healthBar.style.background = healthColors[Math.floor(((health - 0.01) / 50))];
+    }
+    activePowerup = '';
+    document.getElementsByClassName('powerup-img')[0].style.background = 'transparent';
+}

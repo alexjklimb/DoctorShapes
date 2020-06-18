@@ -79,6 +79,27 @@ h1 {
   justify-content: space-around;
   background-color: rgba(0, 0, 0, 0.473);
 }
+.powerups {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  top: 0px;
+  left: 0px;
+  display: flex;
+  z-index: -1;
+}
+.powerup {
+  height: 50px;
+  width: 50px;
+  background: white;
+  margin: 10px;
+  opacity: 0.4;
+}
+.powerup-img {
+  height: 50px;
+  width: 50px;
+  margin: 10px;
+}
 #game-over button {
   cursor: pointer;
 }
