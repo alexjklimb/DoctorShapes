@@ -29,14 +29,31 @@ let pY = boardSize / 2 - playerRadius/2;
 let bullets = [];
 let bulletRadius = 10;
 let bulletSpeed = 6;
+let bulletDamage = 10;
 //ENEMY
-let trackTime = 0;
 let breakTime = false;
 let waveSpawns = 10;
+let waveIndex = 0;
+let waves = 1;
+let waveTimes = [];
+let waveEnemies = [];
+let enemyPoints = 25;
+let spawnEnemies = false
+const maxWaveTime = 2000;
+const minWaveTime = 500;
+const waveBreakTime = 2000;
+let trackTime = waveBreakTime;
+let enemyTypes = 1;
+let enemyTypeIndex = 0;
 let spawns = 0;
 let spawnTime = 500; //5 seconds
 let enemies = [];
-let enemyAmount = 2;
+let enemyAmount = 10;
+let enemyObjects = {enemy1: {height: 20, speed:2, width: 20, background: './images/enemy1.png', shape: "triangle", radius: 12, damage: 10, health:10},
+enemy2: {height: 32, width:32, speed:1, background: 'url(./images/enemy2.png)', shape: "square", radius: 16, damage: 30, health: 30},
+enemy3: {height:21, width:21, dx:Math.PI/6, dy:Math.PI/6, speed:1, background: 'url(./images/enemy3.png)', bulletReloadTime:300, bulletTime:0, shape:'circle', type:'ranged', radius: 10.5, damage:20, health:10},
+bullet: {height: 8, width:8, speed:5, background: 'white', type:'bullet', shape: "circle", radius: 4, damage: 10, health: 10},
+}
 
 let keys = {};
 //POWERUPS
@@ -117,12 +134,11 @@ function startGame() {
         left: pX,
         top: pY,
         id: "player",
-        type: "circle",
+        shape: "circle",
     })
 
     //STARTS THE FIRST WAVE
-    newWave();
-
+    resetWaves();
     // LOOP THAT RUNS ALL OF THE CODE!
     setInterval(function() {
         if (!gamePaused) {
@@ -131,24 +147,12 @@ function startGame() {
             moveBullets();
             checkCollision();
             incrementPowerUps();
+            runWaves();
             if (powerTime >= nextPowerupTime) {
                 createPowerup();
             }
-            if (trackTime >= spawnTime && !breakTime) {
-                trackTime = 0;
-                spawns += 1;
-                newWave();
-                if (spawns > waveSpawns) {
-                    breakTime = true;
-                }
-            } else if (breakTime) {
-                spawns = 0;
-                if (trackTime >= 2000) {
-                    breakTime = false;
-                }
-            }
+            
             powerTime += 1;
-            trackTime += 1;
         }
     }, 10);
     
@@ -194,6 +198,94 @@ var toRadians = function (degree) {
 };
 var toDegrees = function (radians) {
     return (180/Math.PI) * radians
+}
+
+function newWave() {
+    console.log(waveEnemies[waveIndex].length)
+    if (Math.random() > 0.5) {
+        for (var i  = 0; i < waveEnemies[waveIndex].length;i++) {
+            createEnemy(waveEnemies[waveIndex][i]);
+        }
+    } else {
+        spawnEnemies = true;
+    }
+}
+function createEnemy(enemyNumber) {
+    let enemyLeft = 0;
+        let enemyTop = 0;
+        if (Math.random() > 0.5) {
+            if (Math.random() > 0.5) {
+                enemyTop = boardSize;
+            } else {
+                enemyTop = 0 - enemySize;
+            }
+            enemyLeft = Math.random() * boardSize;
+        } else {
+            if (Math.random() > 0.5) {
+                enemyLeft = boardSize;
+            } else {
+                enemyLeft = 0 - enemySize;
+            }
+            enemyTop = Math.random() * boardSize;
+        }
+        enemy = Object.assign({}, enemyObjects[`enemy${enemyNumber}`]);
+        enemy.x = enemyLeft;
+        enemy.y = enemyTop;
+        divEnemy = createObject(enemy);
+        enemies.push(enemy);
+        enemy['enemy'] = divEnemy;
+}
+function runWaves() {
+    trackTime += 1;
+    if (spawnEnemies && trackTime % Math.floor(waveTimes[waveIndex] / waveEnemies[waveIndex].length) === 0) {
+        createEnemy(waveEnemies[waveIndex][enemyTypeIndex]);
+        enemyTypeIndex += 1;
+    }
+    if (trackTime >= waveTimes[waveIndex] && !breakTime) {
+        spawnEnemies = false;
+        waveIndex += 1;
+        enemyTypeIndex = 0;
+        trackTime = 0;
+        if (waveIndex === waveTimes.length) breakTime = true;
+        else newWave();
+    } else if (breakTime) {
+        if (trackTime >= waveBreakTime) {
+            if (enemyTypes < 3) enemyTypes += 1;
+            resetWaves();
+            enemyPoints += enemyAmount;
+            waveIndex = 0;
+            waves += 1;
+            trackTime = 0;
+            breakTime = false;
+            newWave();
+        }
+    }
+}
+
+function resetWaves() {
+    let fullTime = 6000;
+    let accountedTime = 0;
+    let times = [];
+    while (accountedTime < fullTime) {
+        let randomTime = Math.ceil((Math.random() * (maxWaveTime - minWaveTime) + minWaveTime)/100)*100;
+        if (accountedTime + randomTime <= fullTime) times.push(randomTime);
+        else times.push(fullTime - accountedTime);
+        accountedTime += randomTime;
+    }
+    waveTimes = times;
+    waveEnemies = [];
+    waveTimes.forEach((num)=> {
+        let roundPoints = Math.round(num/6000 * enemyPoints);
+        let accountedPoints = 0;
+        let enemyList = [];
+        while (accountedPoints < roundPoints) {
+            let randomEnemy = Math.ceil(Math.random() * enemyTypes);
+            if (accountedPoints + randomEnemy <= roundPoints) enemyList.push(randomEnemy);
+            else enemyList.push(roundPoints - accountedPoints);
+            accountedPoints += randomEnemy;
+        }
+        waveEnemies.push(enemyList);
+    });
 }
 
 function createPowerup() {
@@ -248,9 +340,41 @@ function moveBullets() {
 }
 function moveEnemies() {
     for (enemy of enemies) {
-        enemyDirection = moveTowardsPlayer(enemy.x, enemy.y);
-        enemy.x -= enemyDirection.dx;
-        enemy.y -= enemyDirection.dy;
+        let enemyDirection;
+        if (enemy.type === 'ranged') {
+            enemy.bulletTime += 1;
+            enemyDirection = moveRandomly(enemy);
+            enemy.dx = enemyDirection.dx;
+            enemy.dy = enemyDirection.dy;
+            if ((enemy.x + enemy.radius*2 >= boardSize && enemy.dx < 0) || (enemy.x <= 0 && enemy.dx > 0)) {
+                enemy.dx *= -1;
+            }
+            if ((enemy.y + enemy.radius*2 >= boardSize && enemy.dy < 0) || (enemy.y <= 0 && enemy.dy > 0)) {
+                enemy.dy *= -1;
+            };
+            if (enemy.bulletTime >= enemy.bulletReloadTime) {
+                enemy.bulletTime = 0;
+                bullet = Object.assign({}, enemyObjects.bullet);
+                bullet.x = enemy.x;
+                bullet.y = enemy.y;
+                bulletDirection = moveTowardsPlayer(bullet.x, bullet.y, bullet.radius);
+                bullet.dx = bulletDirection.dx;
+                bullet.dy = bulletDirection.dy;
+                divEnemy = createObject(bullet);
+                enemies.push(bullet);
+                bullet['enemy'] = divEnemy;
+            }
+        } else if(enemy.type === 'bullet') {
+            if (enemy.x + enemy.radius >= boardSize || enemy.x < 0 || enemy.y + enemy.radius >= boardSize || enemy.y < 0) {
+                board.removeChild(enemy.enemy);
+                enemies.splice(enemies.indexOf(enemy), 1);
+            }
+            enemyDirection = {dx: enemy.dx, dy: enemy.dy, degrees:0};
+        } else {
+            enemyDirection = moveTowardsPlayer(enemy.x, enemy.y, enemy.radius);
+        }
+        enemy.x -= enemyDirection.dx * enemy.speed;
+        enemy.y -= enemyDirection.dy * enemy.speed;
         enemy.enemy.style.left = enemy.x + "px";
         enemy.enemy.style.top = enemy.y + "px";
         var newDegrees = Math.abs(enemyDirection.degrees) * enemyDirection.degrees/Math.abs(enemyDirection.degrees);
@@ -262,26 +386,20 @@ function checkCollision() {
         if (bullets.length > 0) {
             //BULLET COLLISION
             bullets.forEach((bullet, bInd, bArr) => {
-                if (circleCollision(bullet.x, enemy.x, bullet.y, enemy.y, bullet.radius, enemy.radius)) {
-                    board.removeChild(enemy.enemy);
-                    enemies.splice(eInd, 1);
-                    board.removeChild(bullet.bullet);
-                    bullets.splice(bInd, 1);
+                if (enemy.shape === 'square' && squareCollision(bullet.x, bullet.y, bullet.radius, enemy.x, enemy.y, enemy.width, enemy.height)) {
+                    hurtEnemy(enemy, eInd, bullet, bInd);
+                } else if (enemy.type === 'bullet') {
+
+                } else if (enemy.shape !== 'square' && circleCollision(bullet.x, enemy.x, bullet.y, enemy.y, bullet.radius, enemy.radius)) {
+                    hurtEnemy(enemy, eInd, bullet, bInd);
                 }
             });
         }
         //PLAYER COLLISION
-        if (circleCollision(enemy.x - 15, pX, enemy.y - 15, pY, enemy.radius, playerRadius/2)) {
-            health -= enemy.damage;
-            extraHealthBar.style.width = Math.round(((health - 0.01) % 50) / 50 * 100 / 2) + 'px';
-            extraHealthBar.style.background = healthColors[Math.floor(((health - 0.01)/ 50))+1];
-            healthBar.style.background = healthColors[Math.floor(((health - 0.01) / 50))];
-            board.removeChild(enemy.enemy);
-            enemies.splice(eInd, 1);
-            if (health <= 0) {
-                board.removeChild(player);
-                gamePaused = true;
-            }
+        if (enemy.shape === 'square' && squareCollision(pX, pY, playerRadius/2, enemy.x, enemy.y, enemy.width, enemy.height)) {
+            hurtPlayer(enemy, eInd);
+        } else if (enemy.shape !== 'square' && circleCollision(enemy.x, pX, enemy.y, pY, enemy.radius, playerRadius/2)) {
+            hurtPlayer(enemy, eInd);
         }
     })
     // POEWRUP COLLISION
@@ -300,6 +418,27 @@ function checkCollision() {
         }
     })
 }
+function hurtPlayer(enemy, eInd) {
+    health -= enemy.damage;
+    extraHealthBar.style.width = Math.round(((health - 0.01) % 50) / 50 * 100 / 2) + 'px';
+    extraHealthBar.style.background = healthColors[Math.floor(((health - 0.01)/ 50))+1];
+    healthBar.style.background = healthColors[Math.floor(((health - 0.01) / 50))];
+    board.removeChild(enemy.enemy);
+    enemies.splice(eInd, 1);
+    if (health <= 0) {
+        board.removeChild(player);
+        gamePaused = true;
+    }
+}
+function hurtEnemy(enemy, eInd, bullet, bInd) {
+    enemy.health -= bulletDamage;
+    board.removeChild(bullet.bullet);
+    bullets.splice(bInd, 1);
+    if (enemy.health <= 0) {
+        board.removeChild(enemy.enemy);
+        enemies.splice(eInd, 1);
+    }
+}
 function circleCollision(cx1, cx2, cy1, cy2, cr1, cr2) {
     cx1 += cr1;
     cx2 += cr2;
@@ -313,40 +452,20 @@ function circleCollision(cx1, cx2, cy1, cy2, cr1, cr2) {
       return false;
     }
 }
-function newWave() {
-    for (var i  = 0; i < enemyAmount;i++) {
-        let enemyLeft = 0;
-        let enemyTop = 0;
-        if (Math.random() > 0.5) {
-            if (Math.random() > 0.5) {
-                enemyTop = boardSize;
-            } else {
-                enemyTop = 0 - enemySize;
-            }
-            enemyLeft = Math.random() * boardSize;
-        } else {
-            if (Math.random() > 0.5) {
-                enemyLeft = boardSize;
-            } else {
-                enemyLeft = 0 - enemySize;
-            }
-            enemyTop = Math.random() * boardSize;
-        }
-        enemy = {
-            height: enemySize,
-            width: enemySize,
-            background: './images/enemy1.png',
-            x: enemyLeft,
-            y: enemyTop,
-            type: "triangle",
-            radius: 12,
-            damage: 10,
-        }
-        divEnemy = createObject(enemy);
-        enemies.push(enemy);
-        enemy['enemy'] = divEnemy;
+function squareCollision(cx, cy, radius, rx, ry, rw, rh) {
+
+    // temporary variables to set edges for testing
+    testX = cx;
+    testY = cy;
+    // which edge is closest?
+    if (cx + radius*2 >= rx && cx <= rx + rw && cy + radius*2 >= ry && cy <= ry + rh) {
+        return true;
+    } else {
+        return false;
     }
-}
+
+  }
+
 function movePlayer() {
     var dx = 0;
     var dy = 0;
@@ -418,9 +537,10 @@ function createObject(newObject) {
     div.style.top = newObject.y + 'px';
     div.style.left = newObject.x + "px";
     div.style.background = newObject.background;
-    if (newObject.type == "circle") {
+    div.style.backgroundSize = 'cover';
+    if (newObject.shape == "circle") {
         div.style.borderRadius = "50%";
-    } else if (newObject.type == "triangle") {
+    } else if (newObject.shape == "triangle") {
         div.style.width = newObject.width+'px';
         div.style.height = newObject.height+'px';
         let img = document.createElement("img");
@@ -455,9 +575,9 @@ function createObject(newObject) {
     }
     return div;
 }
-function moveTowardsPlayer(x, y) {
-    let distanceX = x + enemySize/2 - pX - playerRadius/2;
-    let distanceY = y + enemySize/2 - pY - playerRadius/2;
+function moveTowardsPlayer(x, y, radius) {
+    let distanceX = x + radius - pX - playerRadius/2;
+    let distanceY = y + radius - pY - playerRadius/2;
     let dx;
     let dy;
     let degrees = 0;
@@ -472,8 +592,16 @@ function moveTowardsPlayer(x, y) {
     }
     return { dx: dx, dy: dy, degrees: Math.round(degrees)};
 };
+function moveRandomly(obj) {
+    randomInteger = Math.random() > 0.5 ? -1 : 1;
+    newAngle = Math.atan(obj.dy/obj.dx)+(Math.PI/(Math.random() * (50 - 12) + 12)*randomInteger);
+    addDX = Math.cos(newAngle);
+    addDY = Math.sin(newAngle);
+    if (obj.dx < 0) {addDX *= -1; addDY*=-1;};
+
+    return { dx:addDX, dy: addDY, degrees: newAngle}
+}
 function doPowerup() {
-    console.log(activePowerup)
     if (activePowerup === 'health' && health < maxHealth) {
         health += 20;
         if (health > maxHealth) health = maxHealth;
@@ -490,7 +618,6 @@ function powerShort(name) {
     runningPowerUps.push(name);
     powerUpTracker[name].on = true;
     powerUpTracker[name].trackTime = 0;
-    console.log(name)
 }
 function incrementPowerUps() {
     for (item of runningPowerUps) {
