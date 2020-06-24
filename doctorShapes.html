@@ -17,17 +17,22 @@
         <div id="startButton">Start Game</div>
       </div>
     </div>
-    <!-- <div id="game-over">
-      <button id='restart'>PLAY AGAIN ?</button>
-      <button id='store'>STORE ?</button>
-      <button id='main-menu'>MAIN MENU ?</button>
-    </div> -->
+    <div id="game-over">
+      <div class='menu'>
+        <div class='menu-button' id='restart'></div>
+        <div class='menu-button' id='store'></div>
+        <div class='menu-button' id='main-menu'></div>
+      </div>
+    </div>
     <div class="powerups">
       <div class="powerup"></div>
     </div>
-    <div class="powerups">
+    <div id='power-cont' class="powerups power-cont">
       <div class='powerup-img'></div>
     </div>
+    <div class='coin-bank'><div id='coins'></div></div>
+    <div id='money'>$0</div>
+    <p id='header' style="left:50%; color:white">Click anywhere to Play Beautiful Music</p>
     <script src="./js/doctorShapes.js"></script>
   </body>
 </html>

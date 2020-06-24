@@ -1,3 +1,20 @@
+function sound(src) {
+    this.newSound = document.createElement("audio");
+    this.newSound.src = src;
+    this.newSound.setAttribute('muted', 'true');
+    this.newSound.setAttribute("preload", "auto");
+    this.newSound.setAttribute("controls", "none");
+    this.newSound.style.display = "none";
+    document.body.appendChild(this.newSound);
+    this.play = function(){
+      this.newSound.play();
+    }
+    this.stop = function(){
+      newSound.pause();
+    }
+    return this.newSound;
+}
+
 const playerRadius = 50;
 const maxHealth = 70;
 const playerBackground = "url(./images/ship.png)";
@@ -10,7 +27,17 @@ const centerX = window.innerWidth / 2 - playerRadius*2;
 const centerY = window.innerHeight / 2 - playerRadius*2;
 //MUSIC
 const gameMusic = sound('./music/background.wav');
+const mainMenu = sound('./music/MainMenu.wav');
+mainMenu.loop=true;
 gameMusic.loop=true;
+mainMenu.play().catch(err=>{document.getElementById('startGamePage').style.display = "none"});
+thisFunction = () => {
+    document.getElementById('startGamePage').style.display = "flex"
+    document.getElementById('header').style.display = "none"
+    mainMenu.play();
+    document.removeEventListener('click', thisFunction)
+}
+const forceReaction = document.addEventListener('click', thisFunction)
 
 //BOARD
 let board = null;
@@ -19,8 +46,11 @@ let bY = window.innerHeight / 2 - boardSize/2;
 let gamePaused = false;
 //PLAYER
 let player;
+let coins = 0;
 let health = 50;
 let healthBar;
+let allyObjects = {mine: {height: 17, width: 17, background: 'url(./images/mine.png)', shape: "circle", radius: 8.5, damage:50, health:0}}
+let allies = [];
 let healthColors = ['transparent', 'lightgreen', 'lightblue', 'rgb(0, 122, 204)', 'lightpurple', 'purple', 'darkpurple', 'lightred', 'red', 'darkred', 'black', 'white'];
 let extraHealthBar;
 let playerSpeed = 6;
@@ -49,17 +79,24 @@ let spawns = 0;
 let spawnTime = 500; //5 seconds
 let enemies = [];
 let enemyAmount = 10;
-let enemyObjects = {enemy1: {height: 20, speed:2, width: 20, background: './images/enemy1.png', shape: "triangle", radius: 12, damage: 10, health:10},
-enemy2: {height: 32, width:32, speed:1, background: 'url(./images/enemy2.png)', shape: "square", radius: 16, damage: 30, health: 30},
-enemy3: {height:21, width:21, dx:Math.PI/6, dy:Math.PI/6, speed:1, background: 'url(./images/enemy3.png)', bulletReloadTime:300, bulletTime:0, shape:'circle', type:'ranged', radius: 10.5, damage:20, health:10},
+let enemyObjects = {enemy1: {points:1, height: 20, speed:2, width: 20, background: './images/enemy1.png', shape: "triangle", radius: 12, damage: 10, health:10},
+enemy2: {points: 2, height: 32, width:32, speed:1, background: 'url(./images/enemy2.png)', shape: "square", radius: 16, damage: 30, health: 30},
+enemy3: {points: 3, height:21, width:21, dx:Math.PI/6, dy:Math.PI/6, speed:1, background: 'url(./images/enemy3.png)', bulletReloadTime:300, bulletTime:0, shape:'circle', type:'ranged', radius: 10.5, damage:20, health:10},
 bullet: {height: 8, width:8, speed:5, background: 'white', type:'bullet', shape: "circle", radius: 4, damage: 10, health: 10},
 }
+//COINS
+let cashOutAmount = 25;
+let reqForCash = 50;
+let coinBank = 0;
+let coinBankEl = document.getElementById('coins');
+
+
 
 let keys = {};
 //POWERUPS
 const minPowerupTime = 300; //3 seconds
 const maxPowerupTime = 2000; //20 seconds
-let powerUpTracker = {tripleShot:{on:false, powerupTime:1000, trackTime:0}, doubleShot:{on:false, powerupTime:1000, trackTime:0},health:{}}
+let powerUpTracker = {tripleShot:{on:false, powerupTime:1000, trackTime:0, radius:22}, doubleShot:{on:false, powerupTime:1000, trackTime:0, radius: 22}, health:{radius: 23}, mines:{radius:17}, superSpeed:{on:false, trackTime:0, radius:24, powerupTime:1000}}
 let runningPowerUps = [];
 let powerups = [];
 let nextPowerupTime = Math.random() * (maxPowerupTime - minPowerupTime) + minPowerupTime;
@@ -71,32 +108,24 @@ document.getElementById("startButton").addEventListener('click', function() {
     startGame();
 })
 
-function sound(src) {
-    this.sound = document.createElement("audio");
-    this.sound.src = src;
-    this.sound.setAttribute("preload", "auto");
-    this.sound.setAttribute("controls", "none");
-    this.sound.style.display = "none";
-    document.body.appendChild(this.sound);
-    this.play = function(){
-      this.sound.play();
-    }
-    this.stop = function(){
-      this.sound.pause();
-    }
-    return this.sound;
-  }
+
 
 function startGame() {
     //Creates the music
+   
+    mainMenu.pause();
     gameMusic.play();
     //CREATES THE LISTENER FOR KEY EVENTS
     document.addEventListener("keydown", function(e) {
         keys[e.key] = true;
     })
     document.addEventListener("keyup", function(e) {
-        keys[e.key] = false;
+        if (e.key !== 'q') {
+            keys[e.key] = false;
+        }
     })
+    document.getElementById('restart').addEventListener('click', playAgain);
+    document.getElementById('main-menu').addEventListener('click', function(){location.reload()});
     // CREATES THE GAME!
     createObject({
         height: boardSize,
@@ -201,7 +230,6 @@ var toDegrees = function (radians) {
 }
 
 function newWave() {
-    console.log(waveEnemies[waveIndex].length)
     if (Math.random() > 0.5) {
         for (var i  = 0; i < waveEnemies[waveIndex].length;i++) {
             createEnemy(waveEnemies[waveIndex][i]);
@@ -291,13 +319,14 @@ function resetWaves() {
 function createPowerup() {
     let type = Object.keys(powerUpTracker)[Math.floor(Math.random() * Object.keys(powerUpTracker).length)];
     powerup = {
-        height: 24,
-        width: 24,
+        height: powerUpTracker[type].radius,
+        width: powerUpTracker[type].radius,
         background: `url(./images/powerups/${type}.png)`,
         x: Math.random() * (boardSize - 24),
         y: Math.random() * (boardSize - 24),
         radius: 12,
-        type: type
+        type: type,
+        opacity: 1,
     }
     divPowerup = createObject(powerup);
     powerups.push(powerup);
@@ -401,12 +430,51 @@ function checkCollision() {
         } else if (enemy.shape !== 'square' && circleCollision(enemy.x, pX, enemy.y, pY, enemy.radius, playerRadius/2)) {
             hurtPlayer(enemy, eInd);
         }
+        // ALLY COLLISION
+        if (allies.length > 0 ){
+            allies.forEach((ally, aInd, aArr) => {
+                if (enemy.shape === 'square' && squareCollision(ally.x, ally.y, ally.radius, enemy.x, enemy.y, enemy.width, enemy.height)) {
+                    enemy.health -= ally.damage;
+                    board.removeChild(ally.ally);
+                    allies.splice(aInd, 1);
+                    if (enemy.health <= 0) {
+                        coinBank += enemy.points;
+                        coinBankEl.style.width = (coinBank/reqForCash)*100 + '%';
+                        board.removeChild(enemy.enemy);
+                        enemies.splice(eInd, 1);
+                    }
+                } else if (enemy.shape !== 'square' && circleCollision(enemy.x, ally.x, enemy.y, ally.y, enemy.radius, ally.radius)) {
+                    enemy.health -= ally.damage;
+                    board.removeChild(ally.ally);
+                    allies.splice(aInd, 1);
+                    if (enemy.health <= 0) {
+                        coinBank += enemy.points;
+                        coinBankEl.style.width = (coinBank/reqForCash)*100 + '%';
+                        board.removeChild(enemy.enemy);
+                        enemies.splice(eInd, 1);
+                    }
+                }
+            })
+        }
     })
-    // POEWRUP COLLISION
+    if (coinBank >= reqForCash) {
+        coins += cashOutAmount;
+        coinBank = 0;
+        reqForCash += 20;
+        cashOutAmount += 15;
+        document.getElementById('money').innerText = '$' + coins;
+        coinBankEl.style.width = (coinBank/reqForCash) * 100 + '%';
+    }
+    //POWERUP COLLISION
     powerups.forEach( (powerup, pInd, pArr) => {
-        if (powerups.length > 0) {
+        if (powerups.length > 0 && !activePowerup) {
             if (circleCollision(powerup.x, pX, powerup.y, pY, powerup.radius, playerRadius/2)) {
                 let powerupEl = document.getElementsByClassName('powerup-img')[0];
+                if (powerup.type === 'mines') {
+                    addExtraPowerUps(powerup.background);
+                    powerupEl.style.width = '25px';
+                    powerupEl.style.height = '25px';
+                }
                 powerupEl.style.background = powerup.background;
                 powerupEl.style.backgroundSize = '50%';
                 powerupEl.style.backgroundRepeat = 'no-repeat';
@@ -423,11 +491,16 @@ function hurtPlayer(enemy, eInd) {
     extraHealthBar.style.width = Math.round(((health - 0.01) % 50) / 50 * 100 / 2) + 'px';
     extraHealthBar.style.background = healthColors[Math.floor(((health - 0.01)/ 50))+1];
     healthBar.style.background = healthColors[Math.floor(((health - 0.01) / 50))];
+    if (enemy.type !== 'bullet') {
+        coinBank += enemy.points;
+        coinBankEl.style.width = (coinBank/reqForCash) * 100 + '%';
+    }
     board.removeChild(enemy.enemy);
     enemies.splice(eInd, 1);
     if (health <= 0) {
-        board.removeChild(player);
+        document.getElementById("game-over").style.display = 'flex';
         gamePaused = true;
+
     }
 }
 function hurtEnemy(enemy, eInd, bullet, bInd) {
@@ -435,6 +508,8 @@ function hurtEnemy(enemy, eInd, bullet, bInd) {
     board.removeChild(bullet.bullet);
     bullets.splice(bInd, 1);
     if (enemy.health <= 0) {
+        coinBank += enemy.points;
+        coinBankEl.style.width = (coinBank/reqForCash)*100 + '%';
         board.removeChild(enemy.enemy);
         enemies.splice(eInd, 1);
     }
@@ -528,6 +603,7 @@ function movePlayer() {
     board.style.left = bX + "px";
     player.style.top = pY + "px";
     board.style.top = bY + "px";
+    keys['q'] = false;
 };
 function createObject(newObject) {
     var div = document.createElement("div");
@@ -561,6 +637,7 @@ function createObject(newObject) {
     }
     if (div.id == "player") {
         div.style.backgroundSize = "cover";
+        div.style.zIndex = '5';
         player = div;
         player.appendChild(healthBar);
         player.appendChild(extraHealthBar)
@@ -610,8 +687,22 @@ function doPowerup() {
         healthBar.style.background = healthColors[Math.floor(((health - 0.01) / 50))];
     } else if (activePowerup === 'tripleShot') powerShort('tripleShot');
       else if (activePowerup === 'doubleShot') powerShort('doubleShot');
-    activePowerup = '';
-    document.getElementsByClassName('powerup-img')[0].style.background = 'transparent';
+      else if (activePowerup === 'superSpeed') {powerShort('superSpeed'); playerSpeed *= 2};
+    if (activePowerup !== 'mines') {
+        activePowerup = '';
+        document.getElementsByClassName('powerup-img')[0].style.background = 'transparent';
+    } else {
+        const powerImgs = document.getElementsByClassName('powerup-img')
+        if (powerImgs.length > 1) {
+            document.getElementById('power-cont').removeChild(powerImgs[powerImgs.length - 1]);
+        } else {
+            powerImgs[0].style.width = '50px';
+            powerImgs[0].style.height = '50px';
+            activePowerup = '';
+            document.getElementsByClassName('powerup-img')[0].style.background = 'transparent';
+        }
+        createAllies('mine');
+    }
 }
 
 function powerShort(name) {
@@ -620,11 +711,103 @@ function powerShort(name) {
     powerUpTracker[name].trackTime = 0;
 }
 function incrementPowerUps() {
+    for (powerUp of powerups) {
+        powerUp.opacity -= 0.0005;
+        powerUp.powerup.style.opacity = powerUp.opacity;
+        if (powerUp.opacity <= 0.2) {
+            board.removeChild(powerUp.powerup);
+            powerups.splice(powerups.indexOf(powerUp), 1);
+        }
+    }
     for (item of runningPowerUps) {
         powerUpTracker[item].trackTime+=1;
         if (powerUpTracker[item].trackTime >= powerUpTracker[item].powerupTime) {
+            if (item === "superSpeed") {
+                playerSpeed /= 2;
+            }
             powerUpTracker[item].on = false;
             runningPowerUps.splice(runningPowerUps.indexOf(item), 1);
         }
     }
 }
+
+const createAllies = (type) => {
+    ally = Object.assign({}, allyObjects[type]);
+    ally.x = pX + playerRadius/2 - ally.radius;
+    ally.y = pY + playerRadius/2 - ally.radius;
+    divAlly = createObject(ally);
+    allies.push(ally);
+    ally['ally'] = divAlly;
+};
+
+const addExtraPowerUps = (background) => {
+    for (var i = 0; i < 2; i++) {
+        let div = document.createElement('div');
+        div.style.width = '25px';
+        div.style.height = '25px';
+        div.style.background = background;
+        div.style.backgroundSize = '50%';
+        div.style.backgroundRepeat = 'no-repeat';
+        div.style.backgroundPosition = 'center';
+        div.classList.add('powerup-img')
+        document.getElementById('power-cont').appendChild(div);
+    }
+}
+
+const playAgain = () => {
+    for (bullet of bullets) {
+        board.removeChild(bullet.bullet);
+    }
+    for (powerup of powerups) {
+        board.removeChild(powerup.powerup);
+    }
+    for (enemy of enemies) {
+        board.removeChild(enemy.enemy);
+    }
+    gamePaused = false;
+    playerSpeed = 6;
+    health = 50;
+    pX = boardSize / 2 - playerRadius/2;
+    pY = boardSize / 2 - playerRadius/2;
+    bX = window.innerWidth / 2 - boardSize/2;
+    bY = window.innerHeight / 2 - boardSize/2;
+    bullets = [];
+    bulletRadius = 10;
+    bulletSpeed = 6;
+    bulletDamage = 10;
+    breakTime = false;
+    waveSpawns = 10;
+    waveIndex = 0;
+    waves = 1;
+    waveTimes = [];
+    waveEnemies = [];
+    enemyPoints = 25;
+    spawnEnemies = false
+    trackTime = waveBreakTime;
+    enemyTypes = 1;
+    enemyTypeIndex = 0;
+    spawns = 0;
+    spawnTime = 500; //5 seconds
+    enemies = [];
+    enemyAmount = 10;
+    cashOutAmount = 25;
+    reqForCash = 50;
+    coinBank = 0;
+    runningPowerUps = [];
+    powerups = [];
+    nextPowerupTime = Math.random() * (maxPowerupTime - minPowerupTime) + minPowerupTime;
+    powerTime = 0;
+    activePowerup = '';
+
+    coinBankEl.style.width = (coinBank/reqForCash) * 100 + '%';
+    extraHealthBar.style.width = Math.round(((health - 0.01) % 50) / 50 * 100 / 2) + 'px';
+    extraHealthBar.style.background = healthColors[Math.floor(((health - 0.01)/ 50))+1];
+    healthBar.style.background = healthColors[Math.floor(((health - 0.01) / 50))];
+    document.getElementById("game-over").style.display = 'none';
+    player.style.left = pX + "px";
+    board.style.left = bX + "px";
+    player.style.top = pY + "px";
+    board.style.top = bY + "px";
+    resetWaves();
+}
+
